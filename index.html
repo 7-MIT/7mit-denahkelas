@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>denah.7mit – Denah Kelas 7 MIT</title>
+  <meta name="description" content="Peta denah kelas 7 MIT lengkap dengan panduan navigasi ke kursi, tersambung ke server.7mit.">
+  <meta name="theme-color" content="#334155">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">7</span>
+      <div>
+        <h1>denah.7mit</h1>
+        <p>Denah kelas &amp; panduan ke kursi</p>
+      </div>
+    </div>
+    <div class="status" id="status" role="status" aria-live="polite">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Menghubungkan ke server.7mit…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel" aria-label="Pencarian dan panduan">
+      <label class="field" for="q">Cari nama siswa atau nomor kursi</label>
+      <div class="search">
+        <input id="q" type="search" placeholder="mis. Salman  /  kursi 9" autocomplete="off" inputmode="search">
+        <button id="clear" type="button" aria-label="Hapus pencarian" hidden>×</button>
+      </div>
+      <ul class="results" id="results" role="listbox" aria-label="Hasil pencarian"></ul>
+
+      <section class="guide" id="guide" hidden aria-live="polite">
+        <div class="guide-head">
+          <div class="guide-seat" id="guideSeat"></div>
+          <div>
+            <h2 id="guideName"></h2>
+            <p id="guideMeta"></p>
+          </div>
+        </div>
+        <ol id="guideSteps"></ol>
+        <div class="guide-actions">
+          <button id="saveMine" type="button" class="btn">Jadikan kursi saya</button>
+          <button id="share" type="button" class="btn ghost">Salin tautan</button>
+          <button id="reset" type="button" class="btn ghost">Selesai</button>
+        </div>
+      </section>
+
+      <section class="mine" id="mine" hidden>
+        <span>Kursi saya:</span>
+        <button id="goMine" type="button" class="chip"></button>
+        <button id="forgetMine" type="button" class="link">hapus</button>
+      </section>
+
+      <p class="hint" id="hint">Ketuk kursi di peta, atau cari namamu, untuk melihat rute dari pintu masuk.</p>
+      <p class="meta" id="meta"></p>
+    </aside>
+
+    <section class="mapwrap" id="mapwrap" aria-label="Peta denah kelas">
+      <div class="stage-sizer" id="sizer">
+        <div class="stage" id="stage"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
