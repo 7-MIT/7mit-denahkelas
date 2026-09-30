@@ -6,6 +6,9 @@
   <title>denah.7mit – Denah Kelas 7 MIT</title>
   <meta name="description" content="Peta denah kelas 7 MIT lengkap dengan panduan navigasi ke kursi, tersambung ke server.7mit.">
   <meta name="theme-color" content="#334155">
+  <script type="importmap">
+  {"imports":{"three":"./vendor/three/three.module.min.js","three/addons/":"./vendor/three/addons/"}}
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -59,8 +62,23 @@
     </aside>
 
     <section class="mapwrap" id="mapwrap" aria-label="Peta denah kelas">
+      <div class="modebar">
+        <div class="seg" role="tablist" aria-label="Mode tampilan">
+          <button type="button" id="mode2d" role="tab" aria-selected="true">Denah 2D</button>
+          <button type="button" id="mode3d" role="tab" aria-selected="false">Model 3D</button>
+        </div>
+        <div class="seg views" id="views3d" hidden>
+          <button type="button" data-view="miring">Miring</button>
+          <button type="button" data-view="atas">Atas</button>
+          <button type="button" data-view="kursi" id="viewSeat" disabled title="Pilih kursi dulu">Dari kursi</button>
+        </div>
+      </div>
       <div class="stage-sizer" id="sizer">
         <div class="stage" id="stage"></div>
+      </div>
+      <div class="view3d" id="view3d" hidden>
+        <div class="v3-msg" id="v3msg">Memuat model 3D…</div>
+        <p class="v3-hint" id="v3hint">Seret untuk memutar · scroll/cubit untuk zoom · ketuk kursi untuk rute</p>
       </div>
     </section>
   </main>

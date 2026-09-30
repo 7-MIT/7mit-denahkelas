@@ -8,6 +8,7 @@
   const POLL_MS = 30000;
   const CACHE_KEY = 'denah7mit:layout';
   const MINE_KEY = 'denah7mit:mine';
+  const MODE_KEY = 'denah7mit:mode';
 
   // ---- Geometri denah (koordinat panggung 1780 x 1260)
   const STAGE = { w: 1780, h: 1260 };
@@ -44,6 +45,8 @@
     guideMeta: $('guideMeta'), guideSteps: $('guideSteps'),
     saveMine: $('saveMine'), share: $('share'), reset: $('reset'),
     mine: $('mine'), goMine: $('goMine'), forgetMine: $('forgetMine'),
+    mode2d: $('mode2d'), mode3d: $('mode3d'), views3d: $('views3d'), viewSeat: $('viewSeat'),
+    box3d: $('view3d'), v3msg: $('v3msg'),
     hint: $('hint'), meta: $('meta'), dot: $('statusDot'), statusText: $('statusText')
   };
   let seats = {};          // { "1": "Nama", ... }
@@ -52,6 +55,9 @@
   let selected = null;     // nomor kursi terpilih
   const seatEls = {};
   let routeSvg = null;
+  let view3d = null;       // modul view3d.js (dimuat malas)
+  let mode = '2d';
+  let loading3d = null;
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -253,6 +259,9 @@
     seatEls[n].classList.add('target');
     seatEls[mateOf(n)].classList.add('mate');
     drawRoute(s);
+    if (view3d) view3d.select(n);
+    el.viewSeat.disabled = false;
+    el.viewSeat.title = 'Lihat kelas dari kursi ini';
 
     const name = nameOf(n);
     el.guideSeat.innerHTML = `<div><small>KURSI</small>${n}</div>`;
@@ -275,6 +284,9 @@
     el.stage.classList.remove('navigating');
     Object.values(seatEls).forEach((e) => e.classList.remove('target', 'mate'));
     routeSvg.replaceChildren();
+    if (view3d) view3d.select(null);
+    el.viewSeat.disabled = true;
+    el.viewSeat.title = 'Pilih kursi dulu';
     el.guide.hidden = true;
     el.hint.hidden = false;
     const url = new URL(location.href);
@@ -289,6 +301,7 @@
   }
   function applyLayout(layout, source) {
     seats = layout.published_seats || {};
+    if (view3d) view3d.setSeats(seats);
     version = layout.published_version;
     publishedAt = layout.published_at;
     renderSeats();
@@ -316,6 +329,47 @@
     }
   }
 
+  // ---- Mode 2D / 3D
+  function ensure3d() {
+    if (loading3d) return loading3d;
+    el.v3msg.textContent = 'Memuat model 3D…';
+    loading3d = (async () => {
+      const probe = document.createElement('canvas');
+      if (!(probe.getContext('webgl2') || probe.getContext('webgl'))) throw new Error('Peramban ini tidak mendukung WebGL.');
+      const mod = await import('./view3d.js');
+      await mod.init(el.box3d, { onPick: (n) => selectSeat(n) });
+      mod.setSeats(seats);
+      view3d = mod;
+      if (selected) mod.select(selected);
+      el.v3msg.textContent = '';
+      return mod;
+    })().catch((e) => {
+      loading3d = null;
+      el.v3msg.textContent = 'Model 3D gagal dimuat (' + (e.message || e) + '). Denah 2D tetap bisa dipakai.';
+      throw e;
+    });
+    return loading3d;
+  }
+  async function setMode(m) {
+    mode = m;
+    store.set(MODE_KEY, m);
+    const is3d = m === '3d';
+    el.mode2d.setAttribute('aria-selected', String(!is3d));
+    el.mode3d.setAttribute('aria-selected', String(is3d));
+    el.sizer.hidden = is3d;
+    el.box3d.hidden = !is3d;
+    el.views3d.hidden = !is3d;
+    const url = new URL(location.href);
+    if (is3d) url.searchParams.set('tampilan', '3d'); else url.searchParams.delete('tampilan');
+    history.replaceState(null, '', url);
+    if (is3d) {
+      try { const mod = await ensure3d(); if (mode === '3d') mod.setActive(true); } catch { /* pesan sudah tampil */ }
+    } else {
+      if (view3d) view3d.setActive(false);
+      fit();
+    }
+  }
+
   // ---- Event
   el.q.addEventListener('input', renderResults);
   el.q.addEventListener('keydown', (e) => {
@@ -326,6 +380,12 @@
   });
   el.clear.addEventListener('click', () => { el.q.value = ''; renderResults(); el.q.focus(); });
   el.reset.addEventListener('click', clearSelection);
+  el.mode2d.addEventListener('click', () => setMode('2d'));
+  el.mode3d.addEventListener('click', () => setMode('3d'));
+  el.views3d.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-view]');
+    if (b && view3d && !b.disabled) view3d.setView(b.dataset.view);
+  });
   el.saveMine.addEventListener('click', () => {
     if (selected) { store.set(MINE_KEY, String(selected)); markMine(); el.saveMine.textContent = 'Ini kursi saya ✓'; }
   });
@@ -348,6 +408,7 @@
     const p = new URLSearchParams(location.search);
     const k = parseInt(p.get('kursi'), 10);
     const nama = p.get('nama');
+    if (p.get('tampilan') === '3d' || (!p.has('tampilan') && store.get(MODE_KEY) === '3d')) setMode('3d');
     if (k >= 1 && k <= TOTAL_SEATS) selectSeat(k, { silent: true });
     else if (nama) { el.q.value = nama; renderResults(); const h = search(nama); if (h.length) selectSeat(h[0], { silent: true }); }
   });
