@@ -233,7 +233,7 @@
     const side = s.c ? 'kanan' : 'kiri';
     const mate = nameOf(mateOf(s.n));
     const out = [
-      'Masuk lewat <b>Pintu Masuk</b> di pojok kiri depan kelas, dekat meja guru.',
+      'Masuk lewat <b>Pintu Masuk</b> di pojok kiri depan kelas.',
       'Dari pintu, jalan lurus ke belakang lalu <b>belok kanan</b> menyusuri lorong di depan baris meja pertama.'
     ];
     const turn = s.r === 0 ? '' : ` Belok ke belakang di lorong sisi ${side} banjar.`;

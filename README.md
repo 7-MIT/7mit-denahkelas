@@ -14,9 +14,14 @@ Peta denah kelas 7 MIT + panduan navigasi ke kursi. Situs statis (tanpa build).
 Tombol **Model 3D** memuat `assets/denah-kelas.glb` dengan three.js (disalin ke `vendor/three`, tanpa CDN;
 dimuat hanya saat dibuka). Seret untuk memutar, scroll/cubit untuk zoom, ketuk kursi untuk rute.
 Tombol tampilan: **Miring**, **Atas** (searah denah 2D), **Dari kursi** (sudut pandang siswa).
-Kursi dipetakan lewat nama node model `kursi_1…kursi_24` (posisi dihitung dari model, bukan di-hardcode),
-jadi kalau model diganti, pertahankan nama node itu serta `dinding_depan_a/b` (celah pintu). Perlu WebGL;
-tanpa WebGL, denah 2D tetap dipakai. Lisensi three.js: `vendor/three/LICENSE`.
+
+Catatan model:
+- Model memakai penomoran per **baris** (`kursi_1…8` = baris depan), sedangkan denah 2D dan server.7mit per **banjar**
+  (Banjar 1 = kursi 1–6). Karena itu kursi dipetakan lewat **posisi** (3 baris × 8 kursi: baris dari depan,
+  kolom dari kiri), bukan lewat nama node. Syarat: node `kursi_1…24` (opsional `meja_1…24`) dan `lantai`.
+- Model tidak punya objek pintu; sisi +x (koridor) terbuka. Titik "MULAI" ditaruh di tepi lantai sisi +x dekat depan
+  (sesuai Pintu Masuk di denah 2D). Jika susunan kursi bukan 3×8, nomor node dipakai apa adanya.
+- Perlu WebGL; tanpa WebGL, denah 2D tetap dipakai. Lisensi three.js: `vendor/three/LICENSE`.
 
 Jalankan lokal: `python3 -m http.server 8000` lalu buka http://localhost:8000
 Deploy: unggah `index.html`, `styles.css`, `app.js` ke hosting untuk domain `denah.7mit`.

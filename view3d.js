@@ -20,8 +20,10 @@ let loaded = false;
 let route = null;      // { group, pts, total, cones, ring }
 let tween = null;
 let fpv = false;
-let entrance = { x: 3.8, z: 4.33 };
-let floor = { minX: -5.15, maxX: 5.15, minZ: -4.4, maxZ: 4.4 };
+let entrance = { x: 5, z: 3.4 };   // tepi sisi koridor (+x), dekat depan kelas
+const owner = new Map();            // objek kursi/meja di model -> nomor kursi (penomoran 2D/server)
+let floor = { minX: -5, maxX: 5, minZ: -4.25, maxZ: 4.25 };
+let laneFrontZ = 2.7;
 const clock = new THREE.Clock();
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
@@ -100,16 +102,20 @@ function refreshHighlight() {
 // ---------- Rute 3D
 function routePts(n) {
   const p = seatPos[n];
-  const laneZ = 2.2;
-  const ax = p.c ? p.x - 0.5 : p.x + 0.5; // sisi lorong
+  const laneZ = laneFrontZ;                // lorong di depan baris meja pertama
+  const ax = p.c ? p.x - 0.5 : p.x + 0.5;  // lorong di sisi kursi
   const y = 0.05;
-  return [
-    [entrance.x, y, entrance.z + 0.55],
-    [entrance.x, y, laneZ],
+  const inX = entrance.x - 1.2;            // jalur masuk dari pintu
+  const raw = [
+    [entrance.x + 0.5, y, entrance.z],
+    [inX, y, entrance.z],
+    [inX, y, laneZ],
     [ax, y, laneZ],
     [ax, y, p.z],
     [p.x, y, p.z]
   ].map((a) => new THREE.Vector3(...a));
+  // buang titik kembar agar tidak ada ruas nol
+  return raw.filter((v, i) => i === 0 || v.distanceTo(raw[i - 1]) > 1e-3);
 }
 function clearRoute() {
   if (!route) return;
@@ -228,8 +234,8 @@ export function setView(name) {
   if (name === 'atas') flyTo(new THREE.Vector3(0.001, 12.5, -0.9), new THREE.Vector3(0, 0, 0.3));
   else if (name === 'kursi-luar' && selected) {
     const p = seatPos[selected];
-    flyTo(new THREE.Vector3(p.x + 2.6, 3.4, p.z + 3.4), new THREE.Vector3(p.x, 0.4, p.z));
-  } else flyTo(new THREE.Vector3(5.2, 7.6, 9.4), new THREE.Vector3(0, 0, 0));
+    flyTo(new THREE.Vector3(p.x + 2.8, 2.7, p.z + 2.4), new THREE.Vector3(p.x, 0.4, p.z));
+  } else flyTo(new THREE.Vector3(10.5, 7.5, 4.5), new THREE.Vector3(0, 0, 0.4));
 }
 
 // ---------- Publik
@@ -273,14 +279,14 @@ export async function init(el, opts = {}) {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(dark() ? 0x0f1623 : 0xe9eef6);
   camera = new THREE.PerspectiveCamera(45, 1, 0.05, 80);
-  camera.position.set(5.2, 7.6, 9.4);
+  camera.position.set(10.5, 7.5, 4.5);
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.minDistance = 2;
   controls.maxDistance = 22;
   controls.maxPolarAngle = Math.PI * 0.499;
-  controls.target.set(0, 0, 0);
+  controls.target.set(0, 0, 0.4);
   controls.addEventListener('start', () => { tween = null; });
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.25));
@@ -301,33 +307,47 @@ export async function init(el, opts = {}) {
     const b = box(byName.lantai);
     floor = { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z };
   }
-  // pintu masuk = celah di dinding depan antara dinding_depan_a dan dinding_depan_b
-  if (byName.dinding_depan_a && byName.dinding_depan_b) {
-    const a = box(byName.dinding_depan_a), b = box(byName.dinding_depan_b);
-    const lo = Math.min(a.max.x, b.max.x), hi = Math.max(a.min.x, b.min.x);
-    entrance = { x: (lo + hi) / 2, z: Math.max(a.max.z, b.max.z) - 0.08 };
+  // Pintu masuk tidak ada di model; sisi +x (koridor) terbuka. Titik masuk = tepi lantai sisi +x dekat depan.
+  entrance = { x: floor.maxX, z: floor.maxZ - 0.85 };
+
+  // Penomoran di model (kursi_1..24) berbeda dari denah 2D / server.7mit, jadi kursi dipetakan lewat posisi:
+  // baris dari depan (+z) ke belakang, kolom dari kiri (+x) ke kanan; 2D: banjar = kolom/2, nomor = banjar*6 + baris*2 + sisi + 1.
+  const nodes = [];
+  for (let m = 1; m <= TOTAL; m++) {
+    const obj = byName['kursi_' + m];
+    if (!obj) throw new Error('Node kursi_' + m + ' tidak ada di model');
+    const c = box(obj).getCenter(new THREE.Vector3());
+    nodes.push({ m, obj, desk: byName['meja_' + m], x: c.x, z: c.z });
+  }
+  const rows = [];
+  nodes.slice().sort((p, q) => q.z - p.z).forEach((nd) => {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(row[0].z - nd.z) < 0.25) row.push(nd); else rows.push([nd]);
+  });
+  const grid = rows.length === 3 && rows.every((r) => r.length === 8);
+  const number = new Map();
+  if (grid) {
+    rows.forEach((r, ri) => r.sort((p, q) => q.x - p.x).forEach((nd, k) => number.set(nd, (k >> 1) * 6 + ri * 2 + (k & 1) + 1)));
+    const deskFront = Math.max(...nodes.map((nd) => (nd.desk ? box(nd.desk).max.z : nd.z)));
+    laneFrontZ = (deskFront + (floor.maxZ - 0.25)) / 2;
+  } else {
+    console.warn('Susunan kursi di model bukan 3 baris x 8; memakai nomor node apa adanya.');
+    nodes.forEach((nd) => number.set(nd, nd.m));
   }
 
-  for (let n = 1; n <= TOTAL; n++) {
-    const obj = byName['kursi_' + n];
-    const desk = byName['meja_' + n];
-    if (!obj) throw new Error('Node kursi_' + n + ' tidak ada di model');
+  nodes.forEach((nd) => {
+    const n = number.get(nd);
     // klon material agar highlight satu kursi tidak mengubah semuanya
-    obj.traverse((o) => { if (o.isMesh) o.material = o.material.clone(); });
-    const c = box(obj).getCenter(new THREE.Vector3());
+    nd.obj.traverse((o) => { if (o.isMesh) o.material = o.material.clone(); });
     const sprite = makeSprite(n);
-    sprite.position.set(c.x, 1.22, c.z);
+    sprite.position.set(nd.x, 1.18, nd.z);
     scene.add(sprite);
-    seatPos[n] = { x: c.x, z: c.z, obj, desk, sprite, c: n % 2 ? 0 : 1 };
-    pickables.push(obj);
-    if (desk) pickables.push(desk);
-    pickables.push(sprite);
-  }
-  // kursi ganjil = sisi kiri (x lebih besar) di tiap meja berpasangan
-  for (let n = 1; n <= TOTAL; n += 2) {
-    const l = seatPos[n], r = seatPos[n + 1];
-    if (l.x < r.x) { l.c = 1; r.c = 0; } // jaga-jaga jika model dibalik
-  }
+    seatPos[n] = { x: nd.x, z: nd.z, obj: nd.obj, desk: nd.desk, sprite, c: (n - 1) % 2 };
+    owner.set(nd.obj, n);
+    if (nd.desk) owner.set(nd.desk, n);
+    pickables.push(nd.obj, sprite);
+    if (nd.desk) pickables.push(nd.desk);
+  });
 
   raycaster = new THREE.Raycaster();
   let down = null;
@@ -343,8 +363,7 @@ export async function init(el, opts = {}) {
       let o = h.object;
       if (o.userData && o.userData.seat) return o.userData.seat;
       while (o) {
-        const m = /^(?:kursi|meja)_(\d+)$/.exec(o.name || '');
-        if (m) return parseInt(m[1], 10);
+        if (owner.has(o)) return owner.get(o);
         o = o.parent;
       }
     }
